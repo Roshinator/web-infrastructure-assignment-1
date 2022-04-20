@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_C_FLAGS "-std=c99")
 set(CMAKE_CXX_FLAGS "-std=c++11")
 
-project("web-infrastructure-assignment-1")
+project("wi-proxy")
 
-file(GLOB MY_SOURCES "src/*.cpp" "src/*.hpp" "src/*.h" "include/web-infrastructure-assignment-1/*.h" "include/web-infrastructure-assignment-1/*.hpp")
-add_executable("${PROJECT_NAME}" ${MY_SOURCES})
+file(GLOB SOURCES "src/*.cpp")
+file(GLOB HEADERS "include/${PROJECT_NAME}/*.h" "include/${PROJECT_NAME}/*.hpp")
+
+add_executable("${PROJECT_NAME}" ${SOURCES} ${HEADERS})
+target_include_directories("${PROJECT_NAME}" PRIVATE "include/${PROJECT_NAME}")
