@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_C_VERSION 99)
-set(CMAKE_CXX_VERSION 11)
+set(CMAKE_C_FLAGS "-std=c99")
+set(CMAKE_CXX_FLAGS "-std=c++11")
 
 project("web-infrastructure-assignment-1")
 
