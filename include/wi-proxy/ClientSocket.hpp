@@ -12,7 +12,7 @@
 
 #define RECV_BUFFER_SIZE 80000
 
-class TCPSocket
+class ClientSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
@@ -23,14 +23,14 @@ class TCPSocket
     struct sockaddr_in client_addr;
     
 public:
-    TCPSocket(int port);
+    ClientSocket(int port);
     void listenAndAccept();
     void send(HTTPMessage item);
     std::pair<HTTPMessage, int> receive();
-    ~TCPSocket();
+    ~ClientSocket();
 };
 
-TCPSocket::TCPSocket(int port)
+ClientSocket::ClientSocket(int port)
 {
     listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
@@ -44,13 +44,13 @@ TCPSocket::TCPSocket(int port)
     }
 }
 
-TCPSocket::~TCPSocket()
+ClientSocket::~ClientSocket()
 {
     close(listen_sockfd);
     close(client_sockfd);
 }
 
-void TCPSocket::listenAndAccept()
+void ClientSocket::listenAndAccept()
 {
     if (listen(listen_sockfd, 1) < 0)
     {
@@ -66,13 +66,13 @@ void TCPSocket::listenAndAccept()
     std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
 
-void TCPSocket::send(const HTTPMessage item)
+void ClientSocket::send(const HTTPMessage item)
 {
     std::string s = item.to_string();
     ::send(client_sockfd, s.data(), sizeof(s.data()), 0);
 }
 
-std::pair<HTTPMessage, int> TCPSocket::receive()
+std::pair<HTTPMessage, int> ClientSocket::receive()
 {
     HTTPMessage msg;
     std::string s;

@@ -27,6 +27,10 @@ HTTPMessage::HTTPMessage(const HTTPMessage& msg)
 
 int HTTPMessage::bodyLen()
 {
+    if (headers.find("Content-Length") == headers.end())
+    {
+        return 0;
+    }
     return atoi(headers["Content-Length"].data());
 }
 /// Parses headers out of the string and returns body content length included in string

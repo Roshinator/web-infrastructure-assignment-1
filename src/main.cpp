@@ -1,11 +1,11 @@
 #include <iostream>
 #include <thread>
 #include "HTTPMessage.hpp"
-#include "TCPSocket.hpp"
+#include "ClientSocket.hpp"
 
 void printIncomingRequest(int port)
 {
-    TCPSocket sock(port);
+    ClientSocket sock(port);
 RES_LOOP:
     sock.listenAndAccept();
     int res_status = 1;
