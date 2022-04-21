@@ -61,7 +61,7 @@ void ClientSocket::listenAndAccept()
     if (client_sockfd < 0)
     {
         std::cout << "Failed to accept client" << std::endl;
-        return 1;
+        exit(1);
     }
     std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
