@@ -8,4 +8,4 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "include/${PROJECT_NAME}/*.h" "include/${PROJECT_NAME}/*.hpp")
 
 add_executable("${PROJECT_NAME}" ${SOURCES} ${HEADERS})
-target_include_directories("${PROJECT_NAME}" PRIVATE "include/${PROJECT_NAME}")
+target_include_directories("${PROJECT_NAME}" PUBLIC "include/${PROJECT_NAME}/")
