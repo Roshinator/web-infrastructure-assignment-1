@@ -8,9 +8,10 @@
 #include <cstring>
 #include <cerrno>
 
-#define RECV_BUFFER_SIZE 1
+#include "HTTPMessage.hpp"
 
-template <typename T>
+#define RECV_BUFFER_SIZE 80000
+
 class TCPSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
@@ -24,13 +25,12 @@ class TCPSocket
 public:
     TCPSocket(int port);
     void listenAndAccept();
-    void send(T item);
-    std::tuple<T, int> receive();
+    void send(HTTPMessage item);
+    std::pair<HTTPMessage, int> receive();
     ~TCPSocket();
 };
 
-template<typename T>
-TCPSocket<T>::TCPSocket(int port)
+TCPSocket::TCPSocket(int port)
 {
     listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
@@ -44,15 +44,13 @@ TCPSocket<T>::TCPSocket(int port)
     }
 }
 
-template<typename T>
-TCPSocket<T>::~TCPSocket()
+TCPSocket::~TCPSocket()
 {
     close(listen_sockfd);
     close(client_sockfd);
 }
 
-template<typename T>
-void TCPSocket<T>::listenAndAccept()
+void TCPSocket::listenAndAccept()
 {
     if (listen(listen_sockfd, 1) < 0)
     {
@@ -68,23 +66,23 @@ void TCPSocket<T>::listenAndAccept()
     std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
 
-template <typename T>
-void TCPSocket<T>::send(const T item)
+void TCPSocket::send(const HTTPMessage item)
 {
-    std::string s;
-    s << item;
-    send(client_sockfd, s.data(), sizeof(s.data()), 0);
+    std::string s = item.to_string();
+    ::send(client_sockfd, s.data(), sizeof(s.data()), 0);
 }
 
-template <typename T>
-std::tuple<T, int> TCPSocket<T>::receive()
+std::pair<HTTPMessage, int> TCPSocket::receive()
 {
+    HTTPMessage msg;
     std::string s;
     ssize_t status;
+    int body_len_read = 0;
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         s.append((char*)RECV_BUFFER);
-        if (std::find(RECV_BUFFER, RECV_BUFFER + RECV_BUFFER_SIZE, 0) < RECV_BUFFER + RECV_BUFFER_SIZE) //If the string is finished, break receiving
+        body_len_read += msg.parse(s);
+        if (body_len_read >= msg.bodyLen())
         {
             break;
         }
@@ -93,6 +91,10 @@ std::tuple<T, int> TCPSocket<T>::receive()
     {
         std::cout << "Error " << errno << ": " << strerror(errno) << std::endl;
     }
-    return std::tuple<T, int>(s, status);
+    else if (status > 0)
+    {
+        msg.parseBody(s);
+    }
+    return std::pair<HTTPMessage, int>(msg, status);
 }
 
