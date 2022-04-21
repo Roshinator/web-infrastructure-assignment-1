@@ -12,6 +12,10 @@
 
 #define RECV_BUFFER_SIZE 80000
 
+using std::string;
+using std::cout;
+using std::endl;
+
 class ClientSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
@@ -52,11 +56,13 @@ ClientSocket::~ClientSocket()
 
 void ClientSocket::listenAndAccept()
 {
+    cout << "Listening for Client" << endl;
     if (listen(listen_sockfd, 1) < 0)
     {
         std::cout << "Listen failed" << std::endl;
         exit(1);
     }
+    cout << "Client found, accepting connection" << endl;
     client_sockfd = accept(listen_sockfd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
     if (client_sockfd < 0)
     {
@@ -68,12 +74,14 @@ void ClientSocket::listenAndAccept()
 
 void ClientSocket::send(const HTTPMessage item)
 {
+    cout << "Sending message to client" << endl;
     std::string s = item.to_string();
     ::send(client_sockfd, s.data(), sizeof(s.data()), 0);
 }
 
 std::pair<HTTPMessage, int> ClientSocket::receive()
 {
+    cout << "Receiving mesage from client" << endl;
     HTTPMessage msg;
     std::string s;
     ssize_t status;
@@ -84,6 +92,7 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
         body_len_read += msg.parse(s);
         if (body_len_read >= msg.bodyLen())
         {
+            cout << "Finished reading client message" << endl;
             break;
         }
     }
@@ -93,7 +102,12 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
     }
     else if (status > 0)
     {
+        cout << "Parsing message body" << endl;
         msg.parseBody(s);
+    }
+    else
+    {
+        cout << "Client disconnected, transmission ended" << endl;
     }
     return std::pair<HTTPMessage, int>(msg, status);
 }

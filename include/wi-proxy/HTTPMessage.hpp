@@ -15,6 +15,7 @@ public:
     int parse(const std::string& s);
     void parseBody(const std::string& s);
     int bodyLen();
+    std::string host();
     
     const std::map<std::string, std::string>& getHeaders() const { return headers; };
     friend std::ostream& operator<< (std::ostream& out, const HTTPMessage& msg);

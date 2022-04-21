@@ -2,25 +2,31 @@
 #include <thread>
 #include "HTTPMessage.hpp"
 #include "ClientSocket.hpp"
+#include "ServerSocket.hpp"
 
 void printIncomingRequest(int port)
 {
-    ClientSocket sock(port);
+    ClientSocket client(port);
 RES_LOOP:
-    sock.listenAndAccept();
-    int res_status = 1;
+    client.listenAndAccept();
+    int client_status = 1;
+    int server_status = 1;
     while (true)
     {
-        std::pair<HTTPMessage, int> result = sock.receive();
-        HTTPMessage& res_msg = result.first;
-        res_status = result.second;
-        if (res_status <= 0)
+        std::pair<HTTPMessage, int> client_result = client.receive();
+        HTTPMessage& client_msg = client_result.first;
+        client_status = client_result.second;
+        if (client_status <= 0)
         {
             std::cout << "Client disconnected, resetting socket" << std::endl;
             goto RES_LOOP;
         }
-        HTTPMessage response;
-        sock.send(response);
+        ServerSocket server(80, client_msg.host());
+        server.send(client_msg);
+        std::pair<HTTPMessage, int> server_result = server.receive();
+        HTTPMessage& server_msg = server_result.first;
+        server_status = server_result.second;
+        client.send(server_msg);
     }
 }
 

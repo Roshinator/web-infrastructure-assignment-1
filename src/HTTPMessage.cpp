@@ -33,6 +33,16 @@ int HTTPMessage::bodyLen()
     }
     return atoi(headers["Content-Length"].data());
 }
+
+string HTTPMessage::host()
+{
+    if (headers.find("Host") == headers.end())
+    {
+        return string();
+    }
+    return headers["Host"];
+}
+
 /// Parses headers out of the string and returns body content length included in string
 /// @param s string input
 int HTTPMessage::parse(const std::string& s)
