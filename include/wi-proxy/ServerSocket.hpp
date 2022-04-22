@@ -1,34 +1,34 @@
 #pragma once
 
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <iostream>
-#include <unistd.h>
-#include <string>
-#include <cstring>
 #include <cerrno>
-#include <netdb.h>
+#include <cstring>
 #include <fcntl.h>
+#include <iostream>
+#include <netdb.h>
+#include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "HTTPMessage.hpp"
 
 #define RECV_BUFFER_SIZE 16384
 
-using std::string;
 using std::cout;
 using std::endl;
+using std::string;
 
 /// Wrapper for a to server HTTP TCP socket
 class ServerSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
-    
+
     int sockfd = 0;
     struct sockaddr_in server_addr;
     bool connected = false;
-    
-public:
+
+  public:
     ServerSocket(){};
     bool connectTo(int port, string addr);
     void send(const HTTPMessage& item);
@@ -36,7 +36,6 @@ public:
     std::pair<HTTPMessage, int> receive();
     ~ServerSocket();
 };
-
 
 /// Set server connection
 /// @param port connection port
@@ -71,14 +70,14 @@ bool ServerSocket::connectTo(int port, string addr)
         sockfd = 0;
         return false;
     }
-    //Set non-blocking on the socket
+    // Set non-blocking on the socket
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-    std::cout << "Connection established with server IP: " << inet_ntoa(server_addr.sin_addr) << " and port: " << ntohs(server_addr.sin_port) << std::endl;
+    std::cout << "Connection established with server IP: " << inet_ntoa(server_addr.sin_addr)
+              << " and port: " << ntohs(server_addr.sin_port) << std::endl;
     connected = true;
     return true;
 }
-
 
 /// Returns true if socket is connected
 bool ServerSocket::isConnected()
@@ -124,4 +123,3 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
-

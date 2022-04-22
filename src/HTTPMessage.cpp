@@ -1,13 +1,13 @@
-#include <iostream>
+#include "HTTPMessage.hpp"
 #include <algorithm>
 #include <cstring>
-#include "HTTPMessage.hpp"
+#include <iostream>
 #define CRLF "\r\n"
 #define HEADER_SPLIT "\r\n\r\n"
 
-using std::string;
 using std::cout;
 using std::endl;
+using std::string;
 
 /// Copy constructor
 /// @param msg Other message
@@ -45,7 +45,7 @@ void HTTPMessage::parseHeader()
     {
         split_loc = raw_text.find(HEADER_SPLIT);
         string headers = raw_text.substr(0, split_loc);
-        //Search for "\r\nHost: *\r\n"
+        // Search for "\r\nHost: *\r\n"
         const string pre = "\r\nHost: ";
         const string post = "\r\n";
         size_t pre_loc = headers.find(pre);
@@ -61,11 +61,10 @@ void HTTPMessage::parseHeader()
                 cout << "Found hostname in packet: " << post_cut << endl;
             }
         }
-        
     }
 }
 
-std::ostream& operator<< (std::ostream& out, const HTTPMessage& msg)
+std::ostream& operator<<(std::ostream& out, const HTTPMessage& msg)
 {
     return out << msg.raw_text;
 }

@@ -1,34 +1,34 @@
 #pragma once
 
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <iostream>
-#include <unistd.h>
-#include <string>
-#include <cstring>
 #include <cerrno>
+#include <cstring>
 #include <fcntl.h>
+#include <iostream>
+#include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "HTTPMessage.hpp"
 
 #define RECV_BUFFER_SIZE 16384
 
-using std::string;
 using std::cout;
 using std::endl;
+using std::string;
 
 /// Wrapper for a to client HTTP TCP socket
 class ClientSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
-    
+
     int listen_sockfd = 0;
     int client_sockfd = 0;
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
-    
-public:
+
+  public:
     ClientSocket(int port);
     void listenAndAccept();
     void send(const HTTPMessage& item);
@@ -80,7 +80,7 @@ void ClientSocket::listenAndAccept()
     }
     cout << "Client found, accepting connection" << endl;
     client_sockfd = accept(listen_sockfd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
-    //Set non-blocking
+    // Set non-blocking
     int flags = fcntl(client_sockfd, F_GETFL);
     fcntl(client_sockfd, F_SETFL, flags | O_NONBLOCK);
     if (client_sockfd < 0)
@@ -88,7 +88,8 @@ void ClientSocket::listenAndAccept()
         std::cout << "Failed to accept client" << std::endl;
         exit(1);
     }
-    std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
+    std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr)
+              << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
 
 /// Sends a message to the client
@@ -124,4 +125,3 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
-
