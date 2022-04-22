@@ -104,24 +104,16 @@ void ClientSocket::send(const string& s)
 
 std::pair<HTTPMessage, int> ClientSocket::receive()
 {
-    HTTPMessage msg;
+    
     std::string s;
     ssize_t status;
-    int body_len_read = 0;
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         cout << "Receiving mesage from client" << endl;
         s.append((char*)RECV_BUFFER, status);
-        body_len_read += msg.parse(s);
-        msg.parseBody(s);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
-//        if (body_len_read >= msg.bodyLen())
-//        {
-//            cout << "Finished reading client message" << endl;
-//            break;
-//        }
     }
-    msg.setRawText(s);
+    HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
 

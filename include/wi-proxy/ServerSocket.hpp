@@ -106,52 +106,17 @@ void ServerSocket::send(const HTTPMessage item)
     cout << "Sent " << len << " bytes from " << s.length() << " sized packet to server" << endl;
 }
 
-//std::pair<HTTPMessage, int> ServerSocket::receive()
-//{
-//    HTTPMessage msg;
-//    std::string s;
-//    ssize_t status;
-//    int body_len_read = 0;
-//    while ((status = recv(sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
-//    {
-//        s.append((char*)RECV_BUFFER);
-//        body_len_read += msg.parse(s);
-//        if (body_len_read >= msg.bodyLen())
-//        {
-//            break;
-//        }
-//    }
-//    if (status < 0)
-//    {
-//        std::cout << "Error " << errno << ": " << strerror(errno) << std::endl;
-//    }
-//    else if (status > 0)
-//    {
-//        msg.parseBody(s);
-//    }
-//    return std::pair<HTTPMessage, int>(msg, status);
-//}
-
 std::pair<HTTPMessage, int> ServerSocket::receive()
 {
-    HTTPMessage msg;
     std::string s;
     ssize_t status;
-    int body_len_read = 0;
     while ((status = recv(sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         cout << "Receiving message from server" << endl;
         s.append((char*)RECV_BUFFER, status);
-        body_len_read += msg.parse(s);
-        msg.parseBody(s);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
-//        if (body_len_read >= msg.bodyLen())
-//        {
-//            cout << "Finished reading server message" << endl;
-//            break;
-//        }
     }
-    msg.setRawText(s);
+    HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
 

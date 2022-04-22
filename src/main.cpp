@@ -56,8 +56,8 @@ RES_LOOP:
             errno = 0;
             if (!server_msg.isEmpty())
             {
-                cout << server_msg.getRawText() << endl;
-                client.send(server_msg.getRawText());
+                cout << server_msg.to_string() << endl;
+                client.send(server_msg.to_string());
             }
         }
     }
