@@ -23,7 +23,7 @@ class ServerSocket
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
     
-    int sockfd;
+    int sockfd = 0;
     struct sockaddr_in server_addr;
     bool connected = false;
     
@@ -44,6 +44,11 @@ ServerSocket::ServerSocket()
 
 void ServerSocket::connectTo(int port, string addr)
 {
+    if (sockfd != 0)
+    {
+        close(sockfd);
+        sockfd = 0;
+    }
     cout << "Opening server socket for host: " << addr << endl;
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     server_addr.sin_family = AF_INET;
@@ -131,9 +136,10 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
     while ((status = recv(sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         cout << "Receiving message from server" << endl;
-        s.append((char*)RECV_BUFFER);
+        s.append((char*)RECV_BUFFER, status);
         body_len_read += msg.parse(s);
         msg.parseBody(s);
+        std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
 //        if (body_len_read >= msg.bodyLen())
 //        {
 //            cout << "Finished reading server message" << endl;
