@@ -29,7 +29,7 @@ class ServerSocket
     
 public:
     ServerSocket();
-    void connectTo(int port, string addr);
+    bool connectTo(int port, string addr);
     void send(HTTPMessage item);
     bool isConnected();
 //    std::pair<HTTPMessage, int> receive();
@@ -42,7 +42,7 @@ ServerSocket::ServerSocket()
     
 }
 
-void ServerSocket::connectTo(int port, string addr)
+bool ServerSocket::connectTo(int port, string addr)
 {
     if (sockfd != 0)
     {
@@ -58,7 +58,9 @@ void ServerSocket::connectTo(int port, string addr)
     if (host == NULL || host->h_length < 0)
     {
         cout << "DNS Resolution failed, ignoring request" << endl;
-        return;
+        close(sockfd);
+        sockfd = 0;
+        return false;
     }
     server_addr.sin_addr = *((struct in_addr*)host->h_addr_list[0]);
     cout << "Connecting to server" << endl;
@@ -66,12 +68,15 @@ void ServerSocket::connectTo(int port, string addr)
     if (conn < 0)
     {
         cout << "Failed to connect to server\n" << inet_ntoa(server_addr.sin_addr) << endl;
-        exit(1);
+        close(sockfd);
+        sockfd = 0;
+        return false;
     }
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     std::cout << "Connection established with server IP: " << inet_ntoa(server_addr.sin_addr) << " and port: " << ntohs(server_addr.sin_port) << std::endl;
     connected = true;
+    return true;
 }
 
 bool ServerSocket::isConnected()

@@ -22,8 +22,8 @@ class ClientSocket
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
     
-    int listen_sockfd;
-    int client_sockfd;
+    int listen_sockfd = 0;
+    int client_sockfd = 0;
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     
@@ -51,12 +51,23 @@ ClientSocket::ClientSocket(int port)
 
 ClientSocket::~ClientSocket()
 {
-    close(listen_sockfd);
-    close(client_sockfd);
+    if (client_sockfd != 0)
+    {
+        close(client_sockfd);
+    }
+    if (listen_sockfd != 0)
+    {
+        close(listen_sockfd);
+    }
 }
 
 void ClientSocket::listenAndAccept()
 {
+    if (client_sockfd != 0)
+    {
+        close(client_sockfd);
+        client_sockfd = 0;
+    }
     cout << "Listening for Client" << endl;
     if (listen(listen_sockfd, 1) < 0)
     {

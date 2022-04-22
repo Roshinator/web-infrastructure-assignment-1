@@ -35,7 +35,12 @@ RES_LOOP:
         if (!client_msg.isEmpty())
         {
             cout << "Successful connection" << endl;
-            server.connectTo(80, client_msg.host());
+            if (server.connectTo(80, client_msg.host()) == false)
+            {
+                client.send("HTTP/1.1 400 Bad Request\r\n\r\n");
+                
+                goto RES_LOOP;
+            }
         }
         if (server.isConnected())
         {
