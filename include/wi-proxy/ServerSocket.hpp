@@ -55,10 +55,10 @@ void ServerSocket::connectTo(int port, string addr)
     server_addr.sin_port = htons(port);
     cout << "Resolving name from DNS" << endl;
     struct hostent* host = gethostbyname(addr.data());
-    if (host->h_length < 0)
+    if (host == NULL || host->h_length < 0)
     {
-        cout << "DNS Resolution failed" << endl;
-        exit(1);
+        cout << "DNS Resolution failed, ignoring request" << endl;
+        return;
     }
     server_addr.sin_addr = *((struct in_addr*)host->h_addr_list[0]);
     cout << "Connecting to server" << endl;
