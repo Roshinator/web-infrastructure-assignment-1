@@ -11,8 +11,6 @@
 
 #include "HTTPMessage.hpp"
 
-#define RECV_BUFFER_SIZE 16384
-
 using std::cout;
 using std::endl;
 using std::string;
@@ -20,6 +18,8 @@ using std::string;
 /// Wrapper for a to client HTTP TCP socket
 class ClientSocket
 {
+    static constexpr uint16_t RECV_BUFFER_SIZE = 16384;
+    
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
 
