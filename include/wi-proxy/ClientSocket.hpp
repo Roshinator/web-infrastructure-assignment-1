@@ -17,6 +17,7 @@ using std::string;
 using std::cout;
 using std::endl;
 
+/// Wrapper for a to client HTTP TCP socket
 class ClientSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
@@ -30,11 +31,13 @@ class ClientSocket
 public:
     ClientSocket(int port);
     void listenAndAccept();
-    void send(const string& item);
+    void send(const HTTPMessage& item);
     std::pair<HTTPMessage, int> receive();
     ~ClientSocket();
 };
 
+/// Constructs a client socket
+/// @param port port to listen on
 ClientSocket::ClientSocket(int port)
 {
     listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -61,6 +64,7 @@ ClientSocket::~ClientSocket()
     }
 }
 
+/// Listens and accepts one client
 void ClientSocket::listenAndAccept()
 {
     if (client_sockfd != 0)
@@ -76,6 +80,7 @@ void ClientSocket::listenAndAccept()
     }
     cout << "Client found, accepting connection" << endl;
     client_sockfd = accept(listen_sockfd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
+    //Set non-blocking
     int flags = fcntl(client_sockfd, F_GETFL);
     fcntl(client_sockfd, F_SETFL, flags | O_NONBLOCK);
     if (client_sockfd < 0)
@@ -86,8 +91,11 @@ void ClientSocket::listenAndAccept()
     std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
 
-void ClientSocket::send(const string& s)
+/// Sends a message to the client
+/// @param item message to send
+void ClientSocket::send(const HTTPMessage& item)
 {
+    const string& s = item.to_string();
     cout << "Sending message to client" << endl;
     int len;
     while (true)
@@ -102,9 +110,9 @@ void ClientSocket::send(const string& s)
     cout << "Sent " << len << " bytes from " << s.length() << " sized packet to client" << endl;
 }
 
+/// Receives a message and returns the message and error code from the recv call
 std::pair<HTTPMessage, int> ClientSocket::receive()
 {
-    
     std::string s;
     ssize_t status;
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)

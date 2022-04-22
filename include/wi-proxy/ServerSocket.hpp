@@ -18,6 +18,7 @@ using std::string;
 using std::cout;
 using std::endl;
 
+/// Wrapper for a to server HTTP TCP socket
 class ServerSocket
 {
     const int addr_len = sizeof(struct sockaddr_in);
@@ -28,20 +29,18 @@ class ServerSocket
     bool connected = false;
     
 public:
-    ServerSocket();
+    ServerSocket(){};
     bool connectTo(int port, string addr);
-    void send(HTTPMessage item);
+    void send(const HTTPMessage& item);
     bool isConnected();
-//    std::pair<HTTPMessage, int> receive();
     std::pair<HTTPMessage, int> receive();
     ~ServerSocket();
 };
 
-ServerSocket::ServerSocket()
-{
-    
-}
 
+/// Set server connection
+/// @param port connection port
+/// @param addr address to connect to
 bool ServerSocket::connectTo(int port, string addr)
 {
     if (sockfd != 0)
@@ -72,6 +71,7 @@ bool ServerSocket::connectTo(int port, string addr)
         sockfd = 0;
         return false;
     }
+    //Set non-blocking on the socket
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     std::cout << "Connection established with server IP: " << inet_ntoa(server_addr.sin_addr) << " and port: " << ntohs(server_addr.sin_port) << std::endl;
@@ -79,6 +79,8 @@ bool ServerSocket::connectTo(int port, string addr)
     return true;
 }
 
+
+/// Returns true if socket is connected
 bool ServerSocket::isConnected()
 {
     return connected;
@@ -89,10 +91,12 @@ ServerSocket::~ServerSocket()
     close(sockfd);
 }
 
-void ServerSocket::send(const HTTPMessage item)
+/// Send a message over the socket
+/// @param item HTTP message to send
+void ServerSocket::send(const HTTPMessage& item)
 {
     cout << "Sending message to server" << endl;
-    std::string s = item.to_string();
+    const std::string& s = item.to_string();
     int len;
     while (true)
     {
@@ -106,6 +110,7 @@ void ServerSocket::send(const HTTPMessage item)
     cout << "Sent " << len << " bytes from " << s.length() << " sized packet to server" << endl;
 }
 
+/// Receives a message and returns the message and error code from the recv call
 std::pair<HTTPMessage, int> ServerSocket::receive()
 {
     std::string s;

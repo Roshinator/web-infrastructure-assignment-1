@@ -10,28 +10,35 @@ using std::string;
 using std::cout;
 using std::endl;
 
+/// Copy constructor
+/// @param msg Other message
 HTTPMessage::HTTPMessage(const HTTPMessage& msg)
 {
     hostname = msg.hostname;
     raw_text = string(msg.raw_text);
 }
 
+/// Constructs and parses header
+/// @param s string to construct a message from
 HTTPMessage::HTTPMessage(const string& s)
 {
     raw_text = string(s);
     parseHeader();
 }
 
+/// Gets the hostname
 string HTTPMessage::host()
 {
     return hostname;
 }
 
+/// Returns true if the message is empty
 bool HTTPMessage::isEmpty()
 {
     return raw_text.empty();
 }
 
+/// Parses header
 void HTTPMessage::parseHeader()
 {
     int split_loc = 0;
@@ -39,6 +46,7 @@ void HTTPMessage::parseHeader()
     {
         split_loc = raw_text.find(HEADER_SPLIT);
         string headers = raw_text.substr(0, split_loc);
+        //Search for "\r\nHost: *\r\n"
         const string pre = "\r\nHost: ";
         const string post = "\r\n";
         size_t pre_loc = headers.find(pre);
@@ -63,7 +71,8 @@ std::ostream& operator<< (std::ostream& out, const HTTPMessage& msg)
     return out << msg.raw_text;
 }
 
-string HTTPMessage::to_string() const
+/// Gets the raw text from the message
+const string& HTTPMessage::to_string() const
 {
     return raw_text;
 }

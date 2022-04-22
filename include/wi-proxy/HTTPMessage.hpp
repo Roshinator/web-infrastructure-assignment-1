@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 
+/// Represents an http message
 class HTTPMessage
 {
     std::string hostname;
@@ -17,5 +18,5 @@ public:
     std::string host();
     
     friend std::ostream& operator<< (std::ostream& out, const HTTPMessage& msg);
-    std::string to_string() const;
+    const std::string& to_string() const;
 };
