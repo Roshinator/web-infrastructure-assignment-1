@@ -7,10 +7,11 @@
 #include <string>
 #include <cstring>
 #include <cerrno>
+#include <fcntl.h>
 
 #include "HTTPMessage.hpp"
 
-#define RECV_BUFFER_SIZE 80000
+#define RECV_BUFFER_SIZE 16384
 
 using std::string;
 using std::cout;
@@ -29,7 +30,7 @@ class ClientSocket
 public:
     ClientSocket(int port);
     void listenAndAccept();
-    void send(HTTPMessage item);
+    void send(const string& item);
     std::pair<HTTPMessage, int> receive();
     ~ClientSocket();
 };
@@ -64,6 +65,8 @@ void ClientSocket::listenAndAccept()
     }
     cout << "Client found, accepting connection" << endl;
     client_sockfd = accept(listen_sockfd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
+    int flags = fcntl(client_sockfd, F_GETFL);
+    fcntl(client_sockfd, F_SETFL, flags | O_NONBLOCK);
     if (client_sockfd < 0)
     {
         std::cout << "Failed to accept client" << std::endl;
@@ -72,43 +75,41 @@ void ClientSocket::listenAndAccept()
     std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
 }
 
-void ClientSocket::send(const HTTPMessage item)
+void ClientSocket::send(const string& s)
 {
     cout << "Sending message to client" << endl;
-    std::string s = item.to_string();
-    ::send(client_sockfd, s.data(), sizeof(s.data()), 0);
+    int len;
+    while (true)
+    {
+        errno = 0;
+        len = ::send(client_sockfd, s.data(), s.length(), 0);
+        if (len > 0 || errno != EWOULDBLOCK)
+        {
+            break;
+        }
+    }
+    cout << "Sent " << len << " bytes from " << s.length() << " sized packet to client" << endl;
 }
 
 std::pair<HTTPMessage, int> ClientSocket::receive()
 {
-    cout << "Receiving mesage from client" << endl;
     HTTPMessage msg;
     std::string s;
     ssize_t status;
     int body_len_read = 0;
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
+        cout << "Receiving mesage from client" << endl;
         s.append((char*)RECV_BUFFER);
         body_len_read += msg.parse(s);
-        if (body_len_read >= msg.bodyLen())
-        {
-            cout << "Finished reading client message" << endl;
-            break;
-        }
-    }
-    if (status < 0)
-    {
-        std::cout << "Error " << errno << ": " << strerror(errno) << std::endl;
-    }
-    else if (status > 0)
-    {
-        cout << "Parsing message body" << endl;
         msg.parseBody(s);
+//        if (body_len_read >= msg.bodyLen())
+//        {
+//            cout << "Finished reading client message" << endl;
+//            break;
+//        }
     }
-    else
-    {
-        cout << "Client disconnected, transmission ended" << endl;
-    }
+    msg.setRawText(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
 

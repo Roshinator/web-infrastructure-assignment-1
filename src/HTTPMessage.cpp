@@ -23,15 +23,26 @@ HTTPMessage::HTTPMessage(const HTTPMessage& msg)
     prelude = string(msg.prelude);
     headers = std::map<string, string>(msg.headers);
     body = string(msg.body);
+    raw_text = string(msg.raw_text);
 }
 
 int HTTPMessage::bodyLen()
 {
     if (headers.find("Content-Length") == headers.end())
     {
-        return 0;
+        return -1;
     }
     return atoi(headers["Content-Length"].data());
+}
+
+bool HTTPMessage::isChunked()
+{
+    if (headers.find("Transfer-Encoding") != headers.end()
+        && headers["Transfer-Encoding"].find("chunked") != string::npos)
+    {
+        return true;
+    }
+    return false;
 }
 
 string HTTPMessage::host()
@@ -41,6 +52,21 @@ string HTTPMessage::host()
         return string();
     }
     return headers["Host"];
+}
+
+void HTTPMessage::setRawText(const string& s)
+{
+    raw_text = string(s);
+}
+
+string HTTPMessage::getRawText()
+{
+    return raw_text;
+}
+
+bool HTTPMessage::isEmpty()
+{
+    return raw_text.empty();
 }
 
 /// Parses headers out of the string and returns body content length included in string
@@ -74,8 +100,17 @@ int HTTPMessage::parse(const std::string& s)
 void HTTPMessage::parseBody(const std::string& s)
 {
     int loc = s.find(HEADER_SPLIT) + strlen(HEADER_SPLIT);
-    if (loc + bodyLen() >= s.length())
-    body = string(s.substr(loc, bodyLen()));
+    if (loc < 0 || s.length() < loc)
+    {
+        body = "";
+        return;
+    }
+    body = s.substr(loc, s.length() - loc);
+}
+
+const std::string& HTTPMessage::getBody()
+{
+    return body;
 }
 
 std::ostream& operator<< (std::ostream& out, const HTTPMessage& msg)
