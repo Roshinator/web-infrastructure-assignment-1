@@ -12,11 +12,11 @@ class HTTPMessage
     void parseHeader();
 
   public:
-    HTTPMessage(const std::string& s);
-    HTTPMessage(const HTTPMessage& m);
+    HTTPMessage(const std::string &s);
+    HTTPMessage(const HTTPMessage &m);
     bool isEmpty();
     std::string host();
 
-    friend std::ostream& operator<<(std::ostream& out, const HTTPMessage& msg);
-    const std::string& to_string() const;
+    friend std::ostream &operator<<(std::ostream &out, const HTTPMessage &msg);
+    const std::string &to_string() const;
 };

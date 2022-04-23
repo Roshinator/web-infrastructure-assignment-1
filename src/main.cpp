@@ -1,15 +1,16 @@
 #include "ClientSocket.hpp"
+#include "ClientSocketListener.hpp"
+#include "GlobalItems.hpp"
 #include "HTTPMessage.hpp"
 #include "ServerSocket.hpp"
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <iostream>
-#include <thread>
-#include "ClientSocketListener.hpp"
-#include <utility>
 #include <string>
-#include "GlobalItems.hpp"
-#include <chrono>
+#include <thread>
+#include <utility>
 
 using namespace std::chrono_literals;
 
@@ -19,39 +20,43 @@ using std::string;
 
 constexpr uint64_t spin_wait_threshold = 500000;
 
+std::chrono::milliseconds calculateThreadWait(uint64_t spin_wait_count)
+{
+    if (spin_wait_count > spin_wait_threshold / 10)
+    {
+        double wait_time = 5e-9 * std::pow(spin_wait_count - spin_wait_threshold / 10, 2);
+        wait_time = std::min(1000.0, wait_time);
+        return std::chrono::milliseconds((int)wait_time);
+    }
+    return 0ms;
+}
+
 void threadRunner(ClientSocket client)
 {
     ServerSocket server;
     bool client_would_block, server_would_block;
-    int client_status = 1, server_status = 1;
     uint64_t spin_wait_count = 0;
     while (true)
     {
         // Poll read client message
-        errno = 0;
-        std::pair<HTTPMessage, int> client_result = client.receive();
-        HTTPMessage& client_msg = client_result.first;
-        client_status = client_result.second;
-        client_would_block = errno == EWOULDBLOCK;
-        
+        SocketResult client_result = client.receive();
+        client_would_block = client_result.err == EWOULDBLOCK;
         // If an error occurred, reset connection
-        if (client_status <= 0 && !client_would_block)
+        if (client_result.status <= 0 && !client_would_block)
         {
             GFD::threadedCout("Client disconnected, resetting socket");
-            
-            if (client_status < 0)
+
+            if (client_result.status < 0)
             {
-                GFD::threadedCout(strerror(errno));
+                GFD::threadedCout(strerror(client_result.err));
             }
-            errno = 0;
             break;
         }
-        errno = 0;
         // If message has content, check if server connection needs to be updated
-        if (!client_msg.isEmpty())
+        if (!client_result.message.isEmpty())
         {
             GFD::threadedCout("Successful connection");
-            if (server.connectTo(80, client_msg.host()) == false)
+            if (server.connectTo(80, client_result.message.host()) == false)
             {
                 client.send(HTTPMessage("HTTP/1.1 400 Bad Request\r\n\r\n"));
                 break;
@@ -60,30 +65,29 @@ void threadRunner(ClientSocket client)
         // If we have a server connection, send packet and poll receive
         if (server.isConnected())
         {
-            if (!client_msg.isEmpty())
+            if (!client_result.message.isEmpty()) // If client message has content, send to server
             {
                 spin_wait_count = 0;
-                server.send(client_msg);
+                server.send(client_result.message);
             }
-            errno = 0;
-            std::pair<HTTPMessage, int> server_result = server.receive();
-            HTTPMessage& server_msg = server_result.first;
-            server_status = server_result.second;
-            server_would_block = errno == EWOULDBLOCK;
-            
-            errno = 0;
-            if (!server_msg.isEmpty()) // Forward back to client
+            SocketResult server_result = server.receive();
+            server_would_block = server_result.err == EWOULDBLOCK;
+
+            if (!server_result.message.isEmpty()) // Forward back to client
             {
-//                cout << server_msg.to_string() << endl;
-                client.send(server_msg.to_string());
+                //                cout << server_msg.to_string() << endl;
+                client.send(server_result.message.to_string());
                 spin_wait_count = 0;
             }
         }
+
         spin_wait_count++;
-        //Slow down polling if nothing has come through in a while to ease cpu usage
-        if (spin_wait_count > spin_wait_threshold)
+        // Slow down polling if nothing has come through in a while to ease cpu
+        // usage
+        std::chrono::milliseconds wait_time = calculateThreadWait(spin_wait_count);
+        if (wait_time >= 0ms)
         {
-            std::this_thread::sleep_for(1000ms);
+            std::this_thread::sleep_for(wait_time);
         }
     }
     client.disconnect();
@@ -103,13 +107,14 @@ void runProxy(int port)
             th.detach();
         }
         spin_wait_count++;
-        //Slow down polling if nothing has come through in a while to ease cpu usage
-        if (spin_wait_count > spin_wait_threshold)
+        // Slow down polling if nothing has come through in a while to ease cpu
+        // usage
+        std::chrono::milliseconds wait_time = calculateThreadWait(spin_wait_count);
+        if (wait_time >= 0ms)
         {
-            std::this_thread::sleep_for(1000ms);
+            std::this_thread::sleep_for(wait_time);
         }
     }
-   
 }
 
 int main()

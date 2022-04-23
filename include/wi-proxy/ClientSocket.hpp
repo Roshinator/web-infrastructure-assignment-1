@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <cassert>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -8,11 +9,9 @@
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <cassert>
-#include <string>
 
-#include "HTTPMessage.hpp"
 #include "GlobalItems.hpp"
+#include "HTTPMessage.hpp"
 
 using std::cout;
 using std::endl;
@@ -22,7 +21,7 @@ using std::string;
 class ClientSocket
 {
     static constexpr uint16_t RECV_BUFFER_SIZE = 1024;
-    
+
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
 
@@ -32,10 +31,10 @@ class ClientSocket
   public:
     ClientSocket(struct sockaddr_in addr, int sockfd);
     void listenAndAccept();
-    void send(const HTTPMessage& item);
+    void send(const HTTPMessage &item);
     int getFD();
     void disconnect();
-    std::pair<HTTPMessage, int> receive();
+    SocketResult receive();
 };
 
 /// Constructs a client socket
@@ -50,9 +49,7 @@ void ClientSocket::disconnect()
 {
     if (client_sockfd != 0)
     {
-        GFD::fdMutex.lock();
-        close(client_sockfd);
-        GFD::fdMutex.unlock();
+        GFD::executeLockedFD([&] { close(client_sockfd); });
     }
 }
 
@@ -63,9 +60,9 @@ int ClientSocket::getFD()
 
 /// Sends a message to the client
 /// @param item message to send
-void ClientSocket::send(const HTTPMessage& item)
+void ClientSocket::send(const HTTPMessage &item)
 {
-    const string& s = item.to_string();
+    const string &s = item.to_string();
     GFD::threadedCout("Sending message to client");
     int len;
     while (true)
@@ -82,7 +79,7 @@ void ClientSocket::send(const HTTPMessage& item)
 }
 
 /// Receives a message and returns the message and error code from the recv call
-std::pair<HTTPMessage, int> ClientSocket::receive()
+SocketResult ClientSocket::receive()
 {
     std::string s;
     ssize_t status;
@@ -91,11 +88,12 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
     {
         count += status;
         GFD::threadedCout("Receiving mesage from client");
-        s.append((char*)RECV_BUFFER, status);
+        s.append((char *)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
-//    cout << "FILE DESC: " << client_sockfd << endl;
+    //    cout << "FILE DESC: " << client_sockfd << endl;
     assert(s.length() == count);
-    HTTPMessage msg(s);
-    return std::pair<HTTPMessage, int>(msg, status);
+    int err = errno;
+    errno = 0;
+    return SocketResult{HTTPMessage(s), status, err};
 }

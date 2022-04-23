@@ -1,7 +1,9 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <cassert>
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
@@ -9,12 +11,9 @@
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <cassert>
-#include <cstdlib>
-#include <string>
 
-#include "HTTPMessage.hpp"
 #include "GlobalItems.hpp"
+#include "HTTPMessage.hpp"
 
 using std::cout;
 using std::endl;
@@ -24,21 +23,21 @@ using std::string;
 class ServerSocket
 {
     static constexpr uint16_t RECV_BUFFER_SIZE = 1024;
-    
+
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
 
     int sockfd = -1;
-    struct addrinfo* server_addr = NULL;
+    struct addrinfo *server_addr = NULL;
     bool connected = false;
 
   public:
     ServerSocket(){};
     bool connectTo(int port, string addr);
-    void send(const HTTPMessage& item);
+    void send(const HTTPMessage &item);
     bool isConnected();
     void disconnect();
-    std::pair<HTTPMessage, int> receive();
+    SocketResult receive();
     ~ServerSocket();
 };
 
@@ -47,53 +46,59 @@ class ServerSocket
 /// @param addr address to connect to
 bool ServerSocket::connectTo(int port, string addr)
 {
+    // Close any existing socket
     if (sockfd != 0)
     {
-        GFD::fdMutex.lock();
-        close(sockfd);
-        GFD::fdMutex.unlock();
+        GFD::executeLockedFD([&] { close(sockfd); });
         freeaddrinfo(server_addr);
         sockfd = -1;
     }
-    
+
     GFD::threadedCout("Resolving name from DNS");
-    
+
+    // Use getaddrinfo is thread safe, gethostbyname is not
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_CANONNAME | AI_ALL | AI_ADDRCONFIG;
     getaddrinfo(addr.c_str(), std::to_string(port).c_str(), &hints, &server_addr);
+
     if (server_addr == NULL)
     {
         GFD::threadedCout("DNS Resolution failed, ignoring request");
-        GFD::fdMutex.lock();
-        close(sockfd);
-        GFD::fdMutex.unlock();
+
+        GFD::executeLockedFD([&] { close(sockfd); });
+
+        //        GFD::fdMutex.lock();
+        //        close(sockfd);
+        //        GFD::fdMutex.unlock();
+
         sockfd = -1;
         return false;
     }
-    
+
     GFD::threadedCout("Opening server socket for host: ", addr);
-    GFD::fdMutex.lock();
-    sockfd = socket(server_addr->ai_family, server_addr->ai_socktype, server_addr->ai_protocol);
-    GFD::fdMutex.unlock();
-    
+
+    GFD::executeLockedFD(
+        [&] { sockfd = socket(server_addr->ai_family, server_addr->ai_socktype, server_addr->ai_protocol); });
+
     GFD::threadedCout("Connecting to server");
     int conn = connect(sockfd, server_addr->ai_addr, server_addr->ai_addrlen);
     if (conn < 0)
     {
-        GFD::threadedCout("Failed to connect to server\n", inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr));
-        GFD::fdMutex.lock();
-        close(sockfd);
-        GFD::fdMutex.unlock();
+        GFD::threadedCout("Failed to connect to server\n",
+                          inet_ntoa(((struct sockaddr_in *)server_addr->ai_addr)->sin_addr));
+        GFD::executeLockedFD([&] { close(sockfd); });
         sockfd = -1;
         return false;
     }
     // Set non-blocking on the socket
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-    GFD::threadedCout("Connection established with server IP: ", inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr), " and port: ", ntohs(((struct sockaddr_in*)server_addr->ai_addr)->sin_port));
+    GFD::threadedCout(
+        "Connection established with server IP: ", inet_ntoa(((struct sockaddr_in *)server_addr->ai_addr)->sin_addr),
+        " and port: ", ntohs(((struct sockaddr_in *)server_addr->ai_addr)->sin_port));
     connected = true;
     return true;
 }
@@ -106,18 +111,16 @@ bool ServerSocket::isConnected()
 
 ServerSocket::~ServerSocket()
 {
-    GFD::fdMutex.lock();
-    close(sockfd);
-    GFD::fdMutex.unlock();
+    GFD::executeLockedFD([&] { close(sockfd); });
     freeaddrinfo(server_addr);
 }
 
 /// Send a message over the socket
 /// @param item HTTP message to send
-void ServerSocket::send(const HTTPMessage& item)
+void ServerSocket::send(const HTTPMessage &item)
 {
     GFD::threadedCout("Sending message to server");
-    const std::string& s = item.to_string();
+    const std::string &s = item.to_string();
     int len;
     while (true)
     {
@@ -132,7 +135,7 @@ void ServerSocket::send(const HTTPMessage& item)
 }
 
 /// Receives a message and returns the message and error code from the recv call
-std::pair<HTTPMessage, int> ServerSocket::receive()
+SocketResult ServerSocket::receive()
 {
     std::string s;
     ssize_t status;
@@ -141,10 +144,11 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
     {
         count += status;
         GFD::threadedCout("Receiving message from server");
-        s.append((char*)RECV_BUFFER, status);
+        s.append((char *)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
-//    cout << "FILE DESC: " << sockfd << endl;
-    HTTPMessage msg(s);
-    return std::pair<HTTPMessage, int>(msg, status);
+    //    cout << "FILE DESC: " << sockfd << endl;
+    int err = errno;
+    errno = 0;
+    return SocketResult{HTTPMessage(s), status, err};
 }
