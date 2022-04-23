@@ -62,7 +62,7 @@ RES_LOOP:
             errno = 0;
             if (!server_msg.isEmpty()) // Forward back to client
             {
-                cout << server_msg.to_string() << endl;
+//                cout << server_msg.to_string() << endl;
                 client.send(server_msg.to_string());
             }
         }

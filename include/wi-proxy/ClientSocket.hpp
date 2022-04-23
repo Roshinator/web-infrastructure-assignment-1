@@ -8,6 +8,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <cassert>
 
 #include "HTTPMessage.hpp"
 
@@ -18,7 +19,7 @@ using std::string;
 /// Wrapper for a to client HTTP TCP socket
 class ClientSocket
 {
-    static constexpr uint16_t RECV_BUFFER_SIZE = 16384;
+    static constexpr uint16_t RECV_BUFFER_SIZE = 1024;
     
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
@@ -103,11 +104,12 @@ void ClientSocket::send(const HTTPMessage& item)
     {
         errno = 0;
         len = ::send(client_sockfd, s.data(), s.length(), 0);
-        if (len > 0 || errno != EWOULDBLOCK)
+        if (len > 0 || (errno != EWOULDBLOCK && errno != EAGAIN))
         {
             break;
         }
     }
+    errno = 0;
     cout << "Sent " << len << " bytes from " << s.length() << " sized packet to client" << endl;
 }
 
@@ -116,12 +118,15 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
 {
     std::string s;
     ssize_t status;
+    int count = 0;
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
+        count += status;
         cout << "Receiving mesage from client" << endl;
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
+    assert(s.length() == count);
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }

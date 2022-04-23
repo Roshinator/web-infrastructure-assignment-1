@@ -9,6 +9,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <cassert>
 
 #include "HTTPMessage.hpp"
 
@@ -19,7 +20,7 @@ using std::string;
 /// Wrapper for a to server HTTP TCP socket
 class ServerSocket
 {
-    static constexpr uint16_t RECV_BUFFER_SIZE = 16384;
+    static constexpr uint16_t RECV_BUFFER_SIZE = 1024;
     
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
@@ -101,7 +102,7 @@ void ServerSocket::send(const HTTPMessage& item)
     {
         errno = 0;
         len = ::send(sockfd, s.data(), s.length(), 0);
-        if (len > 0 || errno != EWOULDBLOCK)
+        if (len > 0 || (errno != EWOULDBLOCK && errno != EAGAIN))
         {
             break;
         }
@@ -114,12 +115,15 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
 {
     std::string s;
     ssize_t status;
+    int count = 0;
     while ((status = recv(sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
+        count += status;
         cout << "Receiving message from server" << endl;
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
+    
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }
