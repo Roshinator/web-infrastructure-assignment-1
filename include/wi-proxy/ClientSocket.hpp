@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cassert>
+#include <string>
 
 #include "HTTPMessage.hpp"
 #include "GlobalItems.hpp"
@@ -65,7 +66,7 @@ int ClientSocket::getFD()
 void ClientSocket::send(const HTTPMessage& item)
 {
     const string& s = item.to_string();
-    cout << "Sending message to client" << endl;
+    GFD::threadedCout("Sending message to client");
     int len;
     while (true)
     {
@@ -77,7 +78,7 @@ void ClientSocket::send(const HTTPMessage& item)
         }
     }
     errno = 0;
-    cout << "Sent " << len << " bytes from " << s.length() << " sized packet to client" << endl;
+    GFD::threadedCout("Sent ", len, " bytes from ", s.length(), " sized packet to client");
 }
 
 /// Receives a message and returns the message and error code from the recv call
@@ -89,7 +90,7 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
     while ((status = recv(client_sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         count += status;
-        cout << "Receiving mesage from client" << endl;
+        GFD::threadedCout("Receiving mesage from client");
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }

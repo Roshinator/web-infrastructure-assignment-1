@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <cassert>
 #include <cstdlib>
+#include <string>
 
 #include "HTTPMessage.hpp"
 #include "GlobalItems.hpp"
@@ -55,7 +56,7 @@ bool ServerSocket::connectTo(int port, string addr)
         sockfd = -1;
     }
     
-    cout << "Resolving name from DNS" << endl;
+    GFD::threadedCout("Resolving name from DNS");
     
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -65,7 +66,7 @@ bool ServerSocket::connectTo(int port, string addr)
     getaddrinfo(addr.c_str(), std::to_string(port).c_str(), &hints, &server_addr);
     if (server_addr == NULL)
     {
-        cout << "DNS Resolution failed, ignoring request" << endl;
+        GFD::threadedCout("DNS Resolution failed, ignoring request");
         GFD::fdMutex.lock();
         close(sockfd);
         GFD::fdMutex.unlock();
@@ -73,16 +74,16 @@ bool ServerSocket::connectTo(int port, string addr)
         return false;
     }
     
-    cout << "Opening server socket for host: " << addr << endl;
+    GFD::threadedCout("Opening server socket for host: ", addr);
     GFD::fdMutex.lock();
     sockfd = socket(server_addr->ai_family, server_addr->ai_socktype, server_addr->ai_protocol);
     GFD::fdMutex.unlock();
     
-    cout << "Connecting to server" << endl;
+    GFD::threadedCout("Connecting to server");
     int conn = connect(sockfd, server_addr->ai_addr, server_addr->ai_addrlen);
     if (conn < 0)
     {
-        cout << "Failed to connect to server\n" << inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr) << endl;
+        GFD::threadedCout("Failed to connect to server\n", inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr));
         GFD::fdMutex.lock();
         close(sockfd);
         GFD::fdMutex.unlock();
@@ -92,8 +93,7 @@ bool ServerSocket::connectTo(int port, string addr)
     // Set non-blocking on the socket
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-    std::cout << "Connection established with server IP: " << inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr)
-              << " and port: " << ntohs(((struct sockaddr_in*)server_addr->ai_addr)->sin_port) << std::endl;
+    GFD::threadedCout("Connection established with server IP: ", inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr), " and port: ", ntohs(((struct sockaddr_in*)server_addr->ai_addr)->sin_port));
     connected = true;
     return true;
 }
@@ -116,7 +116,7 @@ ServerSocket::~ServerSocket()
 /// @param item HTTP message to send
 void ServerSocket::send(const HTTPMessage& item)
 {
-    cout << "Sending message to server" << endl;
+    GFD::threadedCout("Sending message to server");
     const std::string& s = item.to_string();
     int len;
     while (true)
@@ -128,7 +128,7 @@ void ServerSocket::send(const HTTPMessage& item)
             break;
         }
     }
-    cout << "Sent " << len << " bytes from " << s.length() << " sized packet to server" << endl;
+    GFD::threadedCout("Sent ", len, " bytes from ", s.length(), " sized packet to server");
 }
 
 /// Receives a message and returns the message and error code from the recv call
@@ -140,7 +140,7 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
     while ((status = recv(sockfd, RECV_BUFFER, RECV_BUFFER_SIZE, 0)) > 0)
     {
         count += status;
-        cout << "Receiving message from server" << endl;
+        GFD::threadedCout("Receiving message from server");
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }

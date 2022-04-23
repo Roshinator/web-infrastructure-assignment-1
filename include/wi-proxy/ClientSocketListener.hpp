@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <fcntl.h>
 #include "ClientSocket.hpp"
+#include <string>
 
 #include "GlobalItems.hpp"
 
@@ -25,7 +26,7 @@ class ClientSocketListener
     
 public:
     ClientSocketListener(int port);
-    ClientSocket listenAndAccept();
+    ClientSocket acceptClient();
     ~ClientSocketListener();
 };
 
@@ -40,10 +41,16 @@ ClientSocketListener::ClientSocketListener(int port)
     fcntl(listen_sockfd, F_SETFL, flags | O_NONBLOCK);
     if (result < 0)
     {
-        std::cout << "Failed to bind client listener socket" << std::endl;
+        GFD::threadedCout("Failed to bind client listener socket");
         exit(1);
     }
-    std::cout << "Bound listener, open for connections" << std::endl;
+    GFD::threadedCout("Bound listener, open for connections");
+    //    cout << "Listening for Client" << endl;
+    if (listen(listen_sockfd, 10) < 0)
+    {
+        GFD::threadedCout("Listen failed");
+        exit(1);
+    }
 }
 
 ClientSocketListener::~ClientSocketListener()
@@ -56,14 +63,8 @@ ClientSocketListener::~ClientSocketListener()
     }
 }
 
-ClientSocket ClientSocketListener::listenAndAccept()
+ClientSocket ClientSocketListener::acceptClient()
 {
-//    cout << "Listening for Client" << endl;
-    if (listen(listen_sockfd, 1) < 0)
-    {
-        std::cout << "Listen failed" << std::endl;
-        exit(1);
-    }
 //    cout << "Client found, accepting connection" << endl;
     struct sockaddr_in client_addr;
     GFD::fdMutex.lock();
@@ -79,7 +80,7 @@ ClientSocket ClientSocketListener::listenAndAccept()
 //    }
     if (client_sockfd > 0)
     {
-        std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr) << " and port: " << ntohs(client_addr.sin_port) << std::endl;
+        GFD::threadedCout("Connection established with client IP: ", inet_ntoa(client_addr.sin_addr), " and port: ", ntohs(client_addr.sin_port));
     }
     return ClientSocket(client_addr, client_sockfd);
 }

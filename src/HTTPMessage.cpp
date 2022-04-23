@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <string>
+#include "GlobalItems.hpp"
+
 #define CRLF "\r\n"
 #define HEADER_SPLIT "\r\n\r\n"
 
@@ -58,7 +61,8 @@ void HTTPMessage::parseHeader()
             {
                 string post_cut = pre_cut.substr(0, post_loc);
                 hostname = post_cut;
-                cout << "Found hostname in packet: " << post_cut << endl;
+                
+                GFD::threadedCout("Found hostname in packet: ", post_cut);
             }
         }
     }
