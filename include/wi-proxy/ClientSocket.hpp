@@ -11,6 +11,7 @@
 #include <cassert>
 
 #include "HTTPMessage.hpp"
+#include "GlobalItems.hpp"
 
 using std::cout;
 using std::endl;
@@ -24,73 +25,39 @@ class ClientSocket
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
 
-    int listen_sockfd = 0;
-    int client_sockfd = 0;
-    struct sockaddr_in server_addr;
+    int client_sockfd;
     struct sockaddr_in client_addr;
 
   public:
-    ClientSocket(int port);
+    ClientSocket(struct sockaddr_in addr, int sockfd);
     void listenAndAccept();
     void send(const HTTPMessage& item);
+    int getFD();
+    void disconnect();
     std::pair<HTTPMessage, int> receive();
-    ~ClientSocket();
 };
 
 /// Constructs a client socket
 /// @param port port to listen on
-ClientSocket::ClientSocket(int port)
+ClientSocket::ClientSocket(struct sockaddr_in addr, int sockfd)
 {
-    listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    int result = bind(listen_sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    if (result < 0)
-    {
-        std::cout << "Failed to bind socket" << std::endl;
-        exit(1);
-    }
+    client_addr = addr;
+    client_sockfd = sockfd;
 }
 
-ClientSocket::~ClientSocket()
+void ClientSocket::disconnect()
 {
     if (client_sockfd != 0)
     {
+        GFD::fdMutex.lock();
         close(client_sockfd);
-    }
-    if (listen_sockfd != 0)
-    {
-        close(listen_sockfd);
+        GFD::fdMutex.unlock();
     }
 }
 
-/// Listens and accepts one client
-void ClientSocket::listenAndAccept()
+int ClientSocket::getFD()
 {
-    if (client_sockfd != 0)
-    {
-        close(client_sockfd);
-        client_sockfd = 0;
-    }
-    cout << "Listening for Client" << endl;
-    if (listen(listen_sockfd, 1) < 0)
-    {
-        std::cout << "Listen failed" << std::endl;
-        exit(1);
-    }
-    cout << "Client found, accepting connection" << endl;
-    client_sockfd = accept(listen_sockfd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
-    // Set non-blocking
-    int flags = fcntl(client_sockfd, F_GETFL);
-    fcntl(client_sockfd, F_SETFL, flags | O_NONBLOCK);
-    if (client_sockfd < 0)
-    {
-        std::cout << "Failed to accept client" << std::endl;
-        exit(1);
-    }
-    std::cout << "Connection established with client IP: " << inet_ntoa(client_addr.sin_addr)
-              << " and port: " << ntohs(client_addr.sin_port) << std::endl;
+    return client_sockfd;
 }
 
 /// Sends a message to the client
@@ -126,6 +93,7 @@ std::pair<HTTPMessage, int> ClientSocket::receive()
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
+//    cout << "FILE DESC: " << client_sockfd << endl;
     assert(s.length() == count);
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);

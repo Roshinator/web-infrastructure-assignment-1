@@ -10,8 +10,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cassert>
+#include <cstdlib>
 
 #include "HTTPMessage.hpp"
+#include "GlobalItems.hpp"
 
 using std::cout;
 using std::endl;
@@ -25,8 +27,8 @@ class ServerSocket
     const int addr_len = sizeof(struct sockaddr_in);
     uint8_t RECV_BUFFER[RECV_BUFFER_SIZE];
 
-    int sockfd = 0;
-    struct sockaddr_in server_addr;
+    int sockfd = -1;
+    struct addrinfo* server_addr = NULL;
     bool connected = false;
 
   public:
@@ -34,6 +36,7 @@ class ServerSocket
     bool connectTo(int port, string addr);
     void send(const HTTPMessage& item);
     bool isConnected();
+    void disconnect();
     std::pair<HTTPMessage, int> receive();
     ~ServerSocket();
 };
@@ -45,37 +48,52 @@ bool ServerSocket::connectTo(int port, string addr)
 {
     if (sockfd != 0)
     {
+        GFD::fdMutex.lock();
         close(sockfd);
-        sockfd = 0;
+        GFD::fdMutex.unlock();
+        freeaddrinfo(server_addr);
+        sockfd = -1;
     }
-    cout << "Opening server socket for host: " << addr << endl;
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
+    
     cout << "Resolving name from DNS" << endl;
-    struct hostent* host = gethostbyname(addr.data());
-    if (host == NULL || host->h_length < 0)
+    
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME | AI_ALL | AI_ADDRCONFIG;
+    getaddrinfo(addr.c_str(), std::to_string(port).c_str(), &hints, &server_addr);
+    if (server_addr == NULL)
     {
         cout << "DNS Resolution failed, ignoring request" << endl;
+        GFD::fdMutex.lock();
         close(sockfd);
-        sockfd = 0;
+        GFD::fdMutex.unlock();
+        sockfd = -1;
         return false;
     }
-    server_addr.sin_addr = *((struct in_addr*)host->h_addr_list[0]);
+    
+    cout << "Opening server socket for host: " << addr << endl;
+    GFD::fdMutex.lock();
+    sockfd = socket(server_addr->ai_family, server_addr->ai_socktype, server_addr->ai_protocol);
+    GFD::fdMutex.unlock();
+    
     cout << "Connecting to server" << endl;
-    int conn = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr));
+    int conn = connect(sockfd, server_addr->ai_addr, server_addr->ai_addrlen);
     if (conn < 0)
     {
-        cout << "Failed to connect to server\n" << inet_ntoa(server_addr.sin_addr) << endl;
+        cout << "Failed to connect to server\n" << inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr) << endl;
+        GFD::fdMutex.lock();
         close(sockfd);
-        sockfd = 0;
+        GFD::fdMutex.unlock();
+        sockfd = -1;
         return false;
     }
     // Set non-blocking on the socket
     int flags = fcntl(sockfd, F_GETFL);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-    std::cout << "Connection established with server IP: " << inet_ntoa(server_addr.sin_addr)
-              << " and port: " << ntohs(server_addr.sin_port) << std::endl;
+    std::cout << "Connection established with server IP: " << inet_ntoa(((struct sockaddr_in*)server_addr->ai_addr)->sin_addr)
+              << " and port: " << ntohs(((struct sockaddr_in*)server_addr->ai_addr)->sin_port) << std::endl;
     connected = true;
     return true;
 }
@@ -88,7 +106,10 @@ bool ServerSocket::isConnected()
 
 ServerSocket::~ServerSocket()
 {
+    GFD::fdMutex.lock();
     close(sockfd);
+    GFD::fdMutex.unlock();
+    freeaddrinfo(server_addr);
 }
 
 /// Send a message over the socket
@@ -123,7 +144,7 @@ std::pair<HTTPMessage, int> ServerSocket::receive()
         s.append((char*)RECV_BUFFER, status);
         std::fill_n(RECV_BUFFER, RECV_BUFFER_SIZE, 0);
     }
-    
+//    cout << "FILE DESC: " << sockfd << endl;
     HTTPMessage msg(s);
     return std::pair<HTTPMessage, int>(msg, status);
 }

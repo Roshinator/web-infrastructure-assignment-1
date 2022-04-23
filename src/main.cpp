@@ -5,23 +5,18 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include "ClientSocketListener.hpp"
+#include <utility>
 
 using std::cout;
 using std::endl;
 using std::string;
 
-void runProxy(int port)
+void threadRunner(ClientSocket client)
 {
-    ClientSocket client(port);
     ServerSocket server;
-    bool client_would_block;
-    bool server_would_block;
-
-    // Tag used to reset the listen loop sequence
-RES_LOOP:
-    client.listenAndAccept();
-    int client_status = 1;
-    int server_status = 1;
+    bool client_would_block, server_would_block;
+    int client_status = 1, server_status = 1;
     while (true)
     {
         // Poll read client message
@@ -30,13 +25,16 @@ RES_LOOP:
         HTTPMessage& client_msg = client_result.first;
         client_status = client_result.second;
         client_would_block = errno == EWOULDBLOCK;
-        errno = 0;
         // If an error occurred, reset connection
         if (client_status <= 0 && !client_would_block)
         {
             std::cout << "Client disconnected, resetting socket" << std::endl;
-            goto RES_LOOP;
+            if (client_status < 0)
+                std::cout << strerror(errno) << std::endl;
+            errno = 0;
+            break;
         }
+        errno = 0;
         // If message has content, check if server connection needs to be updated
         if (!client_msg.isEmpty())
         {
@@ -44,7 +42,7 @@ RES_LOOP:
             if (server.connectTo(80, client_msg.host()) == false)
             {
                 client.send(HTTPMessage("HTTP/1.1 400 Bad Request\r\n\r\n"));
-                goto RES_LOOP;
+                break;
             }
         }
         // If we have a server connection, send packet and poll receive
@@ -67,6 +65,22 @@ RES_LOOP:
             }
         }
     }
+    client.disconnect();
+}
+
+void runProxy(int port)
+{
+    ClientSocketListener listener(port);
+    while (true)
+    {
+        ClientSocket sock = listener.listenAndAccept();
+        if (sock.getFD() >= 0)
+        {
+            std::thread th(threadRunner, std::move(sock));
+            th.detach();
+        }
+    }
+   
 }
 
 int main()
